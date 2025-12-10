@@ -39,6 +39,13 @@
     "estado": "inactivo"
 }
     </pre>
+    <br>
+    <h2>Comandos Utiles</h2>
+    <ul>
+        <li>php artisan serve</li>
+        <li>php artisan test</li>
+        <li>vendor/bin/phpstan analyse</li>
+    </ul>
 
     <style>
         body {
@@ -51,6 +58,18 @@
             text-align: center;
             font-size: 50px;
         }
+        h2 {
+            color: #34495e;
+            margin-top: 30px;
+        }
+        pre {
+            font-size: 14px;
+        }
+        ul {
+            font-size: 16px;
+            line-height: 1.8;
+        }
     </style>
 </body>
 </html>
+
