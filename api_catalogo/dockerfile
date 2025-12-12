@@ -1,4 +1,4 @@
-# Etapa 1: dependencias (Composer, sin dev)
+# Etapa 1: dependencias
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
@@ -7,24 +7,20 @@ RUN composer install --no-dev --no-progress --prefer-dist --optimize-autoloader 
 # Etapa 2: runtime PHP-FPM
 FROM php:8.2-fpm-alpine
 
-# Extensiones necesarias
 RUN apk add --no-cache \
-    postgresql-dev \
     icu-dev \
     libzip-dev \
     oniguruma-dev \
-    && docker-php-ext-install pdo_pgsql pgsql intl zip opcache
+    postgresql-dev \
+    bash \
+ && docker-php-ext-install pdo_pgsql pgsql intl zip opcache
 
 WORKDIR /var/www/html
 
-# Copia código y vendor
 COPY --chown=www-data:www-data . .
 COPY --from=vendor --chown=www-data:www-data /app/vendor /var/www/html/vendor
 
-# Permisos para cache y storage
 RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Exponer PHP-FPM
 EXPOSE 9000
 CMD ["php-fpm"]
-
