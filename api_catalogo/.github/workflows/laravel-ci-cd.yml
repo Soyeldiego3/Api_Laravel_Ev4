@@ -1,0 +1,187 @@
+name: Laravel API - CI/CD Pipeline
+
+# Trigger del pipeline: se ejecuta en push a las ramas main y develop
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  # ========================================
+  # ETAPA 1: CI (Test & Quality)
+  # ========================================
+  ci-test-quality:
+    name: CI - Tests and Code Quality
+    runs-on: ubuntu-latest
+    
+    steps:
+      # Clonar el repositorio
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Configurar PHP 8.2 con extensiones necesarias para Laravel
+      - name: Setup PHP 8.2
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, dom, fileinfo, mysql, pdo_mysql, zip, bcmath
+          coverage: none
+
+      # Validar que composer.json y composer.lock estén sincronizados
+      - name: Validate Composer files
+        run: composer validate --strict
+        working-directory: ./api_catalogo
+
+      # Cachear dependencias de Composer para acelerar builds
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: api_catalogo/vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      # Instalar dependencias de Composer
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+        working-directory: ./api_catalogo
+
+      # Copiar archivo de configuración para testing
+      - name: Prepare environment
+        run: cp .env.example .env
+        working-directory: ./api_catalogo
+
+      # Generar clave de aplicación Laravel
+      - name: Generate application key
+        run: php artisan key:generate
+        working-directory: ./api_catalogo
+
+      # Crear base de datos SQLite para tests
+      - name: Create SQLite database
+        run: touch database/database.sqlite
+        working-directory: ./api_catalogo
+
+      # Ejecutar migraciones
+      - name: Run migrations
+        run: php artisan migrate --force
+        working-directory: ./api_catalogo
+
+      # Ejecutar pruebas unitarias con PHPUnit
+      - name: Run PHPUnit tests
+        run: php artisan test
+        working-directory: ./api_catalogo
+
+      # Ejecutar análisis estático con PHPStan
+      - name: Run PHPStan static analysis
+        run: ./vendor/bin/phpstan analyse --memory-limit=2G
+        working-directory: ./api_catalogo
+
+  # ========================================
+  # ETAPA 2: Build (Contenerización y Seguridad)
+  # ========================================
+  build-security:
+    name: Build - Docker & Security Scan
+    runs-on: ubuntu-latest
+    # Esta etapa solo se ejecuta si CI pasó exitosamente
+    needs: ci-test-quality
+    
+    steps:
+      # Clonar el repositorio
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Configurar QEMU para builds multi-plataforma (opcional)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Configurar Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Login a Docker Hub usando secretos
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # Construir la imagen Docker (sin push todavía)
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api_catalogo
+          push: false
+          load: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/laravel-api:${{ github.sha }},${{ secrets.DOCKER_USERNAME }}/laravel-api:latest
+
+      # Instalar Trivy para escaneo de vulnerabilidades
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy -y
+
+      # Escanear imagen con Trivy - FALLA si hay vulnerabilidades CRITICAL
+      - name: Scan Docker image with Trivy
+        run: |
+          trivy image --exit-code 1 --severity CRITICAL ${{ secrets.DOCKER_USERNAME }}/laravel-api:latest
+
+      # Si el escaneo pasa, subir imagen a Docker Hub
+      - name: Push Docker image to Docker Hub
+        uses: docker/build-push-action@v5
+        with:
+          context: ./api_catalogo
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/laravel-api:${{ github.sha }},${{ secrets.DOCKER_USERNAME }}/laravel-api:latest
+
+  # ========================================
+  # ETAPA 3: CD (Despliegue con Ansible)
+  # ========================================
+  deploy:
+    name: CD - Deploy to Production
+    runs-on: ubuntu-latest
+    # Esta etapa solo se ejecuta si Build pasó exitosamente
+    needs: build-security
+    # Solo desplegar en la rama main
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      # Clonar el repositorio (para acceder al playbook de Ansible)
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Configurar la clave SSH privada para conectar a la VM
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts
+
+      # Instalar Ansible
+      - name: Install Ansible
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y software-properties-common
+          sudo add-apt-repository --yes --update ppa:ansible/ansible
+          sudo apt-get install -y ansible
+
+      # Ejecutar el playbook de Ansible
+      - name: Run Ansible playbook
+        run: |
+          ansible-playbook -i inventory playbook.yml
+        working-directory: ./ansible
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: 'False'
+
+      # Limpiar clave SSH por seguridad
+      - name: Cleanup SSH key
+        if: always()
+        run: rm -rf ~/.ssh/id_rsa
