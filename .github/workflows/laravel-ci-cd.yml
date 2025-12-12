@@ -21,7 +21,10 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: api_catalogo/vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('api_catalogo/composer.lock') }}
+          # Añadimos la versión de PHP a la clave de la caché
+          key: ${{ runner.os }}-php-${{ matrix.php-version || '8.2' }}-composer-${{ hashFiles('api_catalogo/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-${{ matrix.php-version || '8.2' }}-composer-
       - run: composer install --prefer-dist --no-progress --no-interaction
         working-directory: ./api_catalogo
       - run: cp .env.example .env
