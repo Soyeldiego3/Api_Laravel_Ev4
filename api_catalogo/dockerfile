@@ -8,8 +8,8 @@ RUN composer install --no-dev --no-progress --prefer-dist --optimize-autoloader
 FROM php:8.3-fpm-alpine
 
 # Extensiones necesarias
-RUN apk add --no-cache icu-dev libzip-dev oniguruma-dev \
-    && docker-php-ext-install pdo_mysql intl zip opcache
+RUN apk add --no-cache icu-dev libzip-dev oniguruma-dev postgresql-dev \
+    && docker-php-ext-install pdo_pgsql intl zip opcache
 
 WORKDIR /var/www/html
 
