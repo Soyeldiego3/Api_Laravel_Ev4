@@ -9,7 +9,11 @@ jobs:
   ci-test-quality:
     runs-on: ubuntu-latest
     steps:
+      # AJUSTE 1: Añadir fetch-depth: 0 para el análisis de SonarQube
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -21,7 +25,6 @@ jobs:
       - uses: actions/cache@v3
         with:
           path: api_catalogo/vendor
-          # Añadimos la versión de PHP a la clave de la caché
           key: ${{ runner.os }}-php-${{ matrix.php-version || '8.2' }}-composer-${{ hashFiles('api_catalogo/composer.lock') }}
           restore-keys: |
             ${{ runner.os }}-php-${{ matrix.php-version || '8.2' }}-composer-
@@ -39,6 +42,19 @@ jobs:
         working-directory: ./api_catalogo
       - run: ./vendor/bin/phpstan analyse --memory-limit=2G
         working-directory: ./api_catalogo
+
+      # AJUSTE 2: Añadir los pasos de SonarQube del archivo build.yml
+      - name: SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      - name: SonarQube Quality Gate check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   build-security:
     runs-on: ubuntu-latest
