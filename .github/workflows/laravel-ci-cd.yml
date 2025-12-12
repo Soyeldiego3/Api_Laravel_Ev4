@@ -10,11 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mbstring, dom, fileinfo, pdo_pgsql, zip, bcmath
-      - run: composer validate --strict
+          extensions: mbstring, xml, dom, bcmath, pdo, pdo_pgsql
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
         working-directory: ./api_catalogo
       - uses: actions/cache@v3
         with:
