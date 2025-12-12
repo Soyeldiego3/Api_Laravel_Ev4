@@ -6,8 +6,15 @@ use PHPUnit\Framework\TestCase;
 
 class ExampleTest extends TestCase
 {
-    public function test_example(): void
+    public function test_basic_math(): void
     {
-        $this->assertTrue(true);
+        $result = 2 + 2;
+        $this->assertEquals(4, $result);
+    }
+
+    public function test_string_operations(): void
+    {
+        $string = "Laravel API";
+        $this->assertStringContainsString("API", $string);
     }
 }
