@@ -13,16 +13,16 @@ class CatalogoApiTest extends TestCase
     public function test_lista_catalogos(): void
     {
         Catalogo::create([
-            'nombre' => 'Prod',
-            'descripcion' => 'Desc',
+            'nombre' => 'Prod 1',
+            'descripcion' => 'Desc 1',
             'precio' => 100,
             'stock' => 5,
             'estado' => 'activo',
         ]);
 
         $this->getJson('/api/catalogos')
-             ->assertStatus(200)
-             ->assertJsonFragment(['nombre' => 'Prod']);
+            ->assertStatus(200)
+            ->assertJsonFragment(['nombre' => 'Prod 1']);
     }
 
     public function test_crea_catalogo(): void
@@ -36,8 +36,8 @@ class CatalogoApiTest extends TestCase
         ];
 
         $this->postJson('/api/catalogos', $data)
-             ->assertStatus(201)
-             ->assertJsonFragment(['nombre' => 'Nuevo']);
+            ->assertStatus(201)
+            ->assertJsonFragment(['nombre' => 'Nuevo']);
 
         $this->assertDatabaseHas('catalogos', ['nombre' => 'Nuevo']);
     }
@@ -53,8 +53,8 @@ class CatalogoApiTest extends TestCase
         ]);
 
         $this->getJson("/api/catalogos/{$cat->id}")
-             ->assertStatus(200)
-             ->assertJsonFragment(['nombre' => 'Ver']);
+            ->assertStatus(200)
+            ->assertJsonFragment(['nombre' => 'Ver']);
     }
 
     public function test_actualiza_catalogo(): void
@@ -67,9 +67,9 @@ class CatalogoApiTest extends TestCase
             'estado' => 'activo',
         ]);
 
-        $this->putJson("/api/catalogos/{$cat->id}", ['precio' => 199])
-             ->assertStatus(200)
-             ->assertJsonFragment(['precio' => 199]);
+        $this->putJson("/api/catalogos/{$cat->id}", ['stock' => 20])
+            ->assertStatus(200)
+            ->assertJsonFragment(['stock' => 20]);
     }
 
     public function test_elimina_catalogo(): void
@@ -83,7 +83,7 @@ class CatalogoApiTest extends TestCase
         ]);
 
         $this->deleteJson("/api/catalogos/{$cat->id}")
-             ->assertStatus(204);
+            ->assertStatus(204);
 
         $this->assertDatabaseMissing('catalogos', ['id' => $cat->id]);
     }
