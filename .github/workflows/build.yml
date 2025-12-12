@@ -22,18 +22,23 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
+          extensions: mbstring, xml, dom, bcmath, pdo, pdo_mysql
 
       - name: Copy .env
         run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+        working-directory: ./api_catalogo
 
       - name: Install Dependencies
         run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+        working-directory: ./api_catalogo
 
       - name: Generate key
         run: php artisan key:generate
+        working-directory: ./api_catalogo
 
       - name: Run Tests
         run: php artisan test
+        working-directory: ./api_catalogo
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@v6
