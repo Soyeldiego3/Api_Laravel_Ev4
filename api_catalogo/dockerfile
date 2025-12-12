@@ -2,14 +2,18 @@
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-progress --prefer-dist --optimize-autoloader
+RUN composer install --no-dev --no-progress --prefer-dist --optimize-autoloader --no-scripts
 
 # Etapa 2: runtime PHP-FPM
-FROM php:8.3-fpm-alpine
+FROM php:8.2-fpm-alpine
 
 # Extensiones necesarias
-RUN apk add --no-cache icu-dev libzip-dev oniguruma-dev postgresql-dev \
-    && docker-php-ext-install pdo_pgsql intl zip opcache
+RUN apk add --no-cache \
+    postgresql-dev \
+    icu-dev \
+    libzip-dev \
+    oniguruma-dev \
+    && docker-php-ext-install pdo_pgsql pgsql intl zip opcache
 
 WORKDIR /var/www/html
 
