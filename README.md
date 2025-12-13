@@ -48,4 +48,4 @@ Este job depende del éxito del job anterior y es el responsable de poner en pro
 -   AWS (EC2)
 -   Ansible
 -   SonarQube
--   GitHub Actions
+-   GitHub Actions.
